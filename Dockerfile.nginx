@@ -1,0 +1,7 @@
+# Use the official Nginx image as the base
+FROM nginx:latest
+
+# Copy index.html to the Nginx static HTML location
+COPY ./template/index.html /usr/share/nginx/html/index.html
+
+EXPOSE 80
