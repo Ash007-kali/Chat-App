@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modern Chat App</title>
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    #chat-container {
+      width: 100%;
+      max-width: 400px;
+      height: 600px;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #status {
+      padding: 15px;
+      text-align: center;
+      background: #007bff;
+      color: white;
+      font-weight: bold;
+      font-size: 16px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    #messages {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      background: #f9fafb;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .message {
+      max-width: 70%;
+      padding: 10px 15px;
+      border-radius: 20px;
+      font-size: 14px;
+      line-height: 1.5;
+      word-wrap: break-word;
+    }
+
+    .message.received {
+      background: #e9ecef;
+      align-self: flex-start;
+    }
+
+    .message.sent {
+      background: #007bff;
+      color: white;
+      align-self: flex-end;
+    }
+
+    #input-container {
+      display: flex;
+      padding: 10px;
+      background: #ffffff;
+      border-top: 1px solid #ddd;
+    }
+
+    #input-container input {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ddd;
+      border-radius: 20px;
+      outline: none;
+      margin-right: 10px;
+    }
+
+    #input-container button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      background: #007bff;
+      color: white;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    #input-container button:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+    }
+
+    #input-container button:hover:not(:disabled) {
+      background: #0056b3;
+    }
+
+    #typing-indicator {
+      font-size: 12px;
+      color: #888;
+      margin-top: -5px;
+      margin-bottom: 10px;
+    }
+
+    #reconnect-button {
+      display: none;
+      padding: 10px;
+      background: #007bff;
+      color: white;
+      font-size: 16px;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      text-align: center;
+      margin: 10px auto;
+      transition: background 0.3s;
+    }
+
+    #reconnect-button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div id="chat-container">
+    <div id="status">Connecting to the server...</div>
+    <div id="messages"></div>
+    <div id="typing-indicator" style="display: none;">Stranger is typing...</div>
+    <div id="input-container" style="display: none;">
+      <input type="text" id="message-input" placeholder="Type a message..." />
+      <button id="send-button" disabled>Send</button>
+      <button id="disconnect-button" style="margin-left: 5px;">Disconnect</button>
+    </div>
+    <button id="reconnect-button">Connect Again</button>
+  </div>
+
+  <script>
+    let ws = null;
+    let typingTimeout;
+
+    const statusDiv = document.getElementById("status");
+    const messagesDiv = document.getElementById("messages");
+    const typingIndicator = document.getElementById("typing-indicator");
+    const inputContainer = document.getElementById("input-container");
+    const messageInput = document.getElementById("message-input");
+    const sendButton = document.getElementById("send-button");
+    const disconnectButton = document.getElementById("disconnect-button");
+    const reconnectButton = document.getElementById("reconnect-button");
+
+    function connectWebSocket() {
+      ws = new WebSocket("ws://localhost:8080/ws");
+
+      ws.onopen = () => {
+        statusDiv.textContent = "Waiting for a connection...";
+        reconnectButton.style.display = "none";
+      };
+
+      ws.onmessage = (event) => {
+        const data = event.data;
+
+        if (data === "waiting") {
+          statusDiv.textContent = "Waiting for a partner to connect...";
+          inputContainer.style.display = "none";
+        } else if (data === "connected") {
+          statusDiv.textContent = "Connected! Start chatting.";
+          inputContainer.style.display = "flex";
+          sendButton.disabled = false;
+          messageInput.disabled = false;
+        } else if (data === "disconnected") {
+          statusDiv.textContent = "Stranger disconnected.";
+          reconnectButton.style.display = "block";
+          inputContainer.style.display = "none";
+        } else if (data === "typing") {
+          showTypingIndicator();
+        } else {
+          appendMessage(data, "received");
+        }
+      };
+
+      ws.onclose = () => {
+        statusDiv.textContent = "Disconnected from the server.";
+        reconnectButton.style.display = "block";
+        inputContainer.style.display = "none";
+      };
+
+      ws.onerror = () => {
+        statusDiv.textContent = "Error connecting to the server.";
+        reconnectButton.style.display = "block";
+        inputContainer.style.display = "none";
+      };
+    }
+
+    function showTypingIndicator() {
+      typingIndicator.style.display = "block";
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        typingIndicator.style.display = "none";
+      }, 1000);
+    }
+
+    sendButton.addEventListener("click", () => {
+      const message = messageInput.value.trim();
+      if (message) {
+        ws.send(message);
+        appendMessage(message, "sent");
+        messageInput.value = "";
+        sendButton.disabled = true;
+      }
+    });
+
+    messageInput.addEventListener("input", () => {
+      sendButton.disabled = !messageInput.value.trim();
+      ws.send("typing");
+    });
+
+    disconnectButton.addEventListener("click", () => {
+      ws.close();
+      inputContainer.style.display = "none";
+      reconnectButton.style.display = "block";
+    });
+
+    reconnectButton.addEventListener("click", () => {
+      connectWebSocket();
+      messagesDiv.innerHTML = "";
+    });
+
+    function appendMessage(content, type) {
+      const messageDiv = document.createElement("div");
+      messageDiv.classList.add("message", type);
+      messageDiv.textContent = content;
+      messagesDiv.appendChild(messageDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll
+    }
+
+    connectWebSocket();
+  </script>
+</body>
+</html>
