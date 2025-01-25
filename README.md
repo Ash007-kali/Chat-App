@@ -26,3 +26,10 @@ GoChat is a simple chat application built with Go and bootstrapped using Docker 
    ```bash
    git clone <repo-url>
    cd chat-app
+   ```
+
+2. Build and start the services with Docker Compose:
+      ```bash
+   docker-compose up --build
+   ```
+3. Hit browser on localhost (open in multiple tabs to simulate multiple users)
